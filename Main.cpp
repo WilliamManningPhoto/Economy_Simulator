@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstdlib>
 #include <fstream>
+#include <cmath>
 
 // ***** Simulation parameters *****
 
@@ -114,13 +115,14 @@ int main(){
 
         // *** Stock take ***
         double target_stored = pops.size() * 10;
+        double food_difference = target_stored - food.stored;
+        double price_change = abs(food_difference) * 0.01;
 
-        if (day % 7 == 0){
-            if (food.stored > target_stored && food.price > 1){
-                food.price -= 0.1;
-            } else if (food.stored < target_stored && food.price < 20) {
-                food.price += 0.1;
-            }
+        if (food.stored > target_stored && food.price > 1){
+            food.price -= price_change;
+        } 
+        else if (food.stored < target_stored && food.price < 20){
+            food.price += price_change;
         }
 
         // *** Population adjustments ***
