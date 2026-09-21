@@ -19,6 +19,7 @@ class Pop {
         int lifespan;
         bool alive;
         bool food;
+        int hunger;
 
     Pop(double initial_money, double initial_income, int initial_age) {
         money = initial_money;
@@ -27,6 +28,7 @@ class Pop {
         lifespan = 80;
         alive = true;
         food = true;
+        hunger = 0;
     }
 };
 
@@ -50,7 +52,7 @@ int main(){
     std::vector<Pop> pops;
 
     for (int i = 0; i < pop_amount; i++){
-        pops.emplace_back(100, rand() % 11 + 5, rand() % 60 + 18); // Between 15 and 5 incomem, Between 18 and 77 in age too
+        pops.emplace_back(100, rand() % 11 + 5, (rand() % 60 + 18) * 365); // Between 15 and 5 income, Between 18 and 77 in age too
         std::cout << "Starting Money: " << pops[i].money << " Income: " << pops[i].income << std::endl;
     }
 
@@ -70,7 +72,9 @@ int main(){
         // *** Production ***
         
         for (Pop& pop : pops) {
-            food.stored += 0.7 + (rand() / (double)RAND_MAX) * 0.7; // My people are simple village folk
+            if (pop.age >= 18 * 365 && pop.age < 65 *365) {
+                food.stored += (rand() % 20 + 8) / 10.0; // My people are simple village folk
+            }
         }
 
         // *** Consumption ***
@@ -79,23 +83,50 @@ int main(){
         for (Pop& pop : pops){
             pop.food = false;
 
-            if (pop.alive && pop.money >= food.price && food.stored > 0) {
+            // Adults get food first
+            if (pop.age >= 18 * 365 && pop.age < 65 * 365){
+                if (pop.alive && pop.money >= food.price && food.stored > 0){
+                    pop.money -= food.price;
+                    food.stored--;
+                    pop.food = true;
+                }
+            }
+
+            // Children get free food
+            else if (pop.age < 18 * 365 && food.stored > 0){
+                food.stored--;
+                pop.food = true;
+            }
+
+            // Elderly buy food normally
+            else if (pop.alive && pop.money >= food.price && food.stored > 0){
                 pop.money -= food.price;
                 food.stored--;
                 pop.food = true;
-            };
+            }
         }
 
         // *** Stock take ***
-        double target_stored = pops.size() * 10;
+        double target_stored = pops.size() * 50;
 
-        if (food.stored > target_stored && food.price > 1){
-            food.price--;
-        } else if (food.stored < target_stored && food.price < 20) {
-            food.price++;
+        if (day % 7 == 0){
+            if (food.stored > target_stored && food.price > 1){
+                food.price--;
+            } else if (food.stored < target_stored && food.price < 20) {
+                food.price++;
+            }
         }
 
+
+
         // *** Population adjustments ***
+
+        for (Pop& pop : pops){
+            if (pop.age == 18 * 365){
+                pop.income = rand() % 11 + 5;
+            }
+        }
+
 
         // Age and starvation pops
         for (Pop& pop : pops){
@@ -103,7 +134,14 @@ int main(){
             if (pop.age >= pop.lifespan * 365){
                 pop.alive = false;
             }
+
             if (pop.food == false){
+                pop.hunger++;
+            } else {
+                pop.hunger = 0;
+            }
+
+            if (pop.hunger >= 7){
                 pop.alive = false;
             }
         }
@@ -129,7 +167,7 @@ int main(){
             }
 
             for (int i = 0; i < births; i++){
-                pops.emplace_back(100, rand() % 11 + 5, 0);
+                pops.emplace_back(100, 0, 0);
             }
 
         }
@@ -137,6 +175,7 @@ int main(){
 
         // *** Math and data ***
         double total_money = 0;
+        double average_money = 0;
 
         for (Pop& pop : pops){
             if (pop.alive){
@@ -144,7 +183,9 @@ int main(){
             }
         } 
 
-        double average_money = total_money / pops.size();
+        if (!pops.empty()){
+            average_money = total_money / pops.size();
+        }
 
         // Display average money
         if (day % 365 == 0) { // Change between 1 and 7 for daily and weekly
