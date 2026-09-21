@@ -1,11 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <fstream>
 
 // ***** Simulation parameters *****
 
 // Environment globals
-int years = 20;
+int years = 250;
 int simulation_length = years * 365;
 
 int pop_amount = 10;
@@ -53,11 +54,16 @@ int main(){
 
     for (int i = 0; i < pop_amount; i++){
         pops.emplace_back(100, rand() % 11 + 5, (rand() % 60 + 18) * 365); // Between 15 and 5 income, Between 18 and 77 in age too
-        std::cout << "Starting Money: " << pops[i].money << " Income: " << pops[i].income << std::endl;
     }
 
     // Creation of food
     Food food(10,100);
+
+    // Create CSV file for graphing in python
+    std::ofstream data("simulation.csv");
+
+    // CSV headings
+    data << "Year,Population,AverageMoney,Price,Food\n";
 
     // Simulation
     for (int day = 1; day <= simulation_length; day++){
@@ -85,7 +91,7 @@ int main(){
 
             // Adults get food first
             if (pop.age >= 18 * 365 && pop.age < 65 * 365){
-                if (pop.alive && pop.money >= food.price && food.stored > 0){
+                if (pop.alive && pop.money >= food.price && food.stored >= 1){
                     pop.money -= food.price;
                     food.stored--;
                     pop.food = true;
@@ -93,13 +99,13 @@ int main(){
             }
 
             // Children get free food
-            else if (pop.age < 18 * 365 && food.stored > 0){
+            else if (pop.age < 18 * 365 && food.stored >= 1){
                 food.stored--;
                 pop.food = true;
             }
 
             // Elderly buy food normally
-            else if (pop.alive && pop.money >= food.price && food.stored > 0){
+            else if (pop.alive && pop.money >= food.price && food.stored >= 1){
                 pop.money -= food.price;
                 food.stored--;
                 pop.food = true;
@@ -107,17 +113,15 @@ int main(){
         }
 
         // *** Stock take ***
-        double target_stored = pops.size() * 50;
+        double target_stored = pops.size() * 10;
 
         if (day % 7 == 0){
             if (food.stored > target_stored && food.price > 1){
-                food.price--;
+                food.price -= 0.1;
             } else if (food.stored < target_stored && food.price < 20) {
-                food.price++;
+                food.price += 0.1;
             }
         }
-
-
 
         // *** Population adjustments ***
 
@@ -126,7 +130,6 @@ int main(){
                 pop.income = rand() % 11 + 5;
             }
         }
-
 
         // Age and starvation pops
         for (Pop& pop : pops){
@@ -161,9 +164,12 @@ int main(){
             int births = 0;
 
             for (Pop& pop : pops){
-                if (rand() % 100 < 10){
-                    births++;
+                if (pop.age >= 18 * 365 && pop.age < 65 * 365){
+                    if (rand() % 100 < 10){
+                        births++;
+                    }
                 }
+
             }
 
             for (int i = 0; i < births; i++){
@@ -171,7 +177,6 @@ int main(){
             }
 
         }
-
 
         // *** Math and data ***
         double total_money = 0;
@@ -190,11 +195,18 @@ int main(){
         // Display average money
         if (day % 365 == 0) { // Change between 1 and 7 for daily and weekly
             std::cout << "Year " << day / 365
-                      << " | Food price: " << food.price
-                      << " | Food stored: " << food.stored
-                      << " | Pops: " << pops.size()
-                      << " | Average Pop money: " << average_money
-                      << std::endl;
+                    << " | Pops: " << pops.size()
+                    << " | Average Pop money: " << average_money
+                    << " | Food price: " << food.price
+                    << " | Food stored: " << food.stored
+                    << std::endl;
+
+            data << day / 365 << ","
+                << pops.size() << ","
+                << average_money << ","
+                << food.price << ","
+                << food.stored << "\n";
         }
     } 
+    data.close();
 }
