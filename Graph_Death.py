@@ -8,10 +8,13 @@ print(data.columns)
 print(data.head())
 
 # Create population graph
-plt.plot(data["Week"], data["Price"])
+plt.plot(data["Week"], data["AgeDeath"], label="Age Death")
+plt.plot(data["Week"], data["Starvation"], label="Starvation")
 
 plt.xlabel("Week")
-plt.ylabel("Price")
-plt.title("Food Price Over Time")
+plt.ylabel("Deaths")
+plt.title("Deaths Over Time")
+
+plt.legend()
 
 plt.show()
