@@ -23,7 +23,7 @@ class Pop {
         bool food;
         int hunger;
 
-    Pop(double initial_money, double initial_income, int initial_age) {
+    Pop(double initial_money, double initial_income, int initial_age){
         money = initial_money;
         income = initial_income;
         age = initial_age;
@@ -39,7 +39,7 @@ class Food {
         double price;
         double stored;
 
-    Food(double initial_price, double initial_stored) {
+    Food(double initial_price, double initial_stored){
         price = initial_price;
         stored = initial_stored;
     }
@@ -72,7 +72,7 @@ int main(){
     // Simulation
     for (int day = 1; day <= simulation_length; day++){
 
-        // Pops income
+        // *** Pops income and reset ***
         for (Pop& pop : pops){
             if (pop.alive){
                 pop.money += pop.income;
@@ -101,31 +101,43 @@ int main(){
                     pop.food = true;
                 }
             }
+        }
 
-            // Children get free food
-            else if (pop.age < 18 * 365 && food.stored >= 1){
-                food.stored--;
-                pop.food = true;
-            }
+        // Children and elders get whatever is left over
+        for (Pop& pop : pops){
+            
+            if (pop.food == false){
+                if (pop.age < 18 * 365 && food.stored >= 1){
+                    food.stored--;
+                    pop.food = true;
+                    }
 
-            // Elderly buy food normally
-            else if (pop.alive && pop.money >= food.price && food.stored >= 1){
-                pop.money -= food.price;
-                food.stored--;
-                pop.food = true;
+                else if (pop.age >= 65 * 365 && pop.alive && pop.money >= food.price && food.stored >= 1){
+                    pop.money -= food.price;
+                    food.stored--;
+                    pop.food = true;
+                }
             }
         }
 
         // *** Stock take ***
         double target_stored = pops.size() * 10;
         double food_difference = target_stored - food.stored;
-        double price_change = abs(food_difference) * 0.01;
+        double price_change = abs(food_difference) * 0.001;
 
         if (food.stored > target_stored && food.price > 1){
             food.price -= price_change;
-        } 
-        else if (food.stored < target_stored && food.price < 15){
+        }
+         else if (food.stored < target_stored && food.price < 15){
             food.price += price_change;
+        }
+
+        if (food.price < 1){
+            food.price = 1;
+        }
+
+        if (food.price > 15){
+            food.price = 15;
         }
 
         // *** Population adjustments ***
@@ -160,8 +172,8 @@ int main(){
         }
         
         // Remove dead pops
-        for (auto it = pops.begin(); it != pops.end(); ) {
-            if (it->alive == false) {
+        for (auto it = pops.begin(); it != pops.end();){
+            if (it->alive == false){
                 it = pops.erase(it);
             } else {
                 ++it;
