@@ -8,10 +8,10 @@ print(data.columns)
 print(data.head())
 
 # Create population graph
-plt.plot(data["Year"], data["Population"])
+plt.plot(data["Week"], data["Food"])
 
-plt.xlabel("Year")
-plt.ylabel("Population")
-plt.title("Population Over Time")
+plt.xlabel("Week")
+plt.ylabel("FoodStores")
+plt.title("Food Stored Over Time")
 
 plt.show()

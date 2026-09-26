@@ -8,10 +8,10 @@ print(data.columns)
 print(data.head())
 
 # Create food stored percentage graph
-plt.plot(data["Week"], data["FoodPercentage"])
+plt.plot(data["Year"], data["FoodPercentage"])
 
-plt.xlabel("Week")
+plt.xlabel("Year")
 plt.ylabel("FoodStores")
-plt.title("Food Stored Over Time")
+plt.title("Food Percentage Stored Over Time")
 
 plt.show()

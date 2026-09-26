@@ -8,21 +8,20 @@
 // ***** Simulation parameters *****
 
 // Environment globals
-const int YEARS = 300;
+const int YEARS = 500;
 const int YEAR_DAYS = 365;
 const int SIMULATION_LENGTH = YEARS * YEAR_DAYS;
 
 const int POP_AMOUNT = 10;
-int LIFESPAN = 80;
 int ADULT_AGE = 18 * YEAR_DAYS;
 int SENIOR_AGE = 65 * YEAR_DAYS;
 
-int LOCUST_DAYS = 0;
+// Events (Delay in years, Length in days)
 int LOCUST_DELAY = 0;
+int LOCUST_LENGTH = 0;
 
-// Stats
-int AGE_DEATH = 0;
-int STARVATION_DEATH = 0;
+int PLAGUE_DELAY = 0;
+int PLAGUE_LENGTH = 0;
 
 // Data stores
 class Pop {
@@ -55,7 +54,14 @@ class Food {
     }
 };
 
-void GiveIncome(std::vector<Pop>& pops) {
+class YearlyStats {
+    public:
+    int age_deaths = 0;
+    int starvation_deaths = 0;
+    int plague_deaths = 0;
+};
+
+void GiveIncome(std::vector<Pop>& pops){
 
     // *** Pops income ***
     for (Pop& pop : pops){
@@ -83,11 +89,11 @@ void ProductionFood(std::vector<Pop>& pops,Food& food, int day){
     }
 
     for (Pop pop : pops) {// Food production determined by time of the year
-        if (pop.age >= ADULT_AGE && pop.age <= SENIOR_AGE) {
+        if (pop.age >= ADULT_AGE && pop.age <= SENIOR_AGE){
                 double production = (rand() % 22 + 6) / 10.0; //  Production of my simple villagers
                 
-                if (LOCUST_DAYS > 0){
-                    production *= 0.4;
+                if (LOCUST_LENGTH > 0){
+                    production *= 0.3;
                 }
 
                 food.stored += production * harvest;
@@ -100,15 +106,34 @@ void Locust(std::vector<Pop>& pops, Food& food){
     // *** Swarm of locust (unlocks at 100 pops for stability) ***
 
     if (pops.size() >= 100 && LOCUST_DELAY <= 0){
-        if (rand() % 20000 < 1){
+        if ((rand() % 10000 < 1)){
             food.stored -= food.stored * (rand() % 51) / 100.0;
 
-            LOCUST_DAYS = 50;
-            LOCUST_DELAY = 2 * YEAR_DAYS;
+            LOCUST_LENGTH = 50;
+            LOCUST_DELAY = 3 * YEAR_DAYS;
         }
-
     }
-    
+}
+
+void Plague(std::vector<Pop>& pops, YearlyStats& stats){
+
+    // *** Active plague kills people over time ***
+    if (PLAGUE_LENGTH > 0){
+        for (Pop& pop : pops){
+            if (rand() % 1000 < 1){  // Small chance each day
+                pop.alive = false;
+                stats.plague_deaths++;
+            }
+        }
+    }
+
+    // *** Plague trigger (only happens when no active plague) ***
+    if (pops.size() >= 500 && PLAGUE_DELAY <= 0){
+        if ((rand() % 20000 < 1)){
+            PLAGUE_LENGTH = 365 * 5;  // Plague lasting length
+            PLAGUE_DELAY = 50 * YEAR_DAYS;  // Can't trigger again for a certain amount of time
+        }
+    }
 }
 
 void ConsumeFood(std::vector<Pop>& pops, Food& food){
@@ -157,11 +182,17 @@ double GetTargetStorage(std::vector<Pop>& pops) {
     return pops.size() * 120;
 }
 
-void StockTake(std::vector<Pop>& pops, Food& food){
+void StockTake(std::vector<Pop>& pops, Food& food, int day){
 
     // *** Stock take ***
     const double TARGET_PRICE = 5.0;
     double target_stored = GetTargetStorage(pops);
+
+    // Food spoilage
+    if (day % 7 == 0){
+        double spoilage_rate = 0.001;
+        food.stored *= (1.0 - spoilage_rate);
+    }
     
     // Adjust price based on how far from target storage
     double storage_ratio = food.stored / target_stored;  // 0.5 = half full, 2.0 = double full
@@ -169,10 +200,10 @@ void StockTake(std::vector<Pop>& pops, Food& food){
     
     // Clamp
     if (food.price < 1) food.price = 1;
-    if (food.price > 20) food.price = 10;
+    if (food.price > 20) food.price = 20;
 }
 
-void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day){
+void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day,YearlyStats& stats){
     
     double target_stored = GetTargetStorage(pops);
 
@@ -188,10 +219,13 @@ void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day){
 
     for (Pop& pop : pops){
         pop.age++;
-        if (pop.age >= LIFESPAN * YEAR_DAYS){
-            pop.alive = false;
-            AGE_DEATH++;
-            //std::cout << "Pop died of old age" << std::endl;
+
+        if (pop.age > SENIOR_AGE){
+            int age_years = pop.age / YEAR_DAYS;
+            if (rand() % (150 - age_years) < 1){
+                pop.alive = false;
+                stats.age_deaths++;
+            }
         }
 
         if (pop.food == false){
@@ -202,8 +236,7 @@ void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day){
 
         if (pop.hunger >= 7){
             pop.alive = false;
-            STARVATION_DEATH++;
-            //std::cout << "Pop starved" << std::endl;
+            stats.starvation_deaths++;
         }
     }
     
@@ -220,8 +253,8 @@ void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day){
     int births = 0;
 
     for (Pop& pop : pops){
-        if (pop.age >= ADULT_AGE && pop.age < SENIOR_AGE && LOCUST_DAYS == 0 && food.stored > target_stored * 0.5){
-            if (rand() % 7000 < 1){
+        if (pop.age >= ADULT_AGE && pop.age < SENIOR_AGE && LOCUST_LENGTH == 0 && food.stored > target_stored * 0.5){
+            if (rand() % 10000 < 1){
                 births++;
             }
         }
@@ -234,7 +267,7 @@ void PopulationAdjustment(std::vector<Pop>& pops,Food& food, int day){
 
 }
 
-void Statistics(std::vector<Pop>& pops, Food& food, int day, std::ofstream& data){
+void Statistics(std::vector<Pop>& pops, Food& food, int day, std::ofstream& data,YearlyStats& stats){
 
     // *** Math and data ***
     double total_money = 0;
@@ -255,9 +288,10 @@ void Statistics(std::vector<Pop>& pops, Food& food, int day, std::ofstream& data
     double max_food_storage = GetTargetStorage(pops);  // Your target
     double food_percentage = (food.stored / max_food_storage) * 100.0;
 
-    // Display average money
-    if (day % 7 == 0) {
-        std::cout << "Week " << day / 7
+    // Display and record yearly
+    if (day % 365 == 0) {
+        int year = day / YEAR_DAYS;
+        std::cout << "Year " << year
                 << " | Pops: " << pops.size()
                 << " | Average Pop money: " << average_money
                 << " | Food price: " << food.price
@@ -265,17 +299,17 @@ void Statistics(std::vector<Pop>& pops, Food& food, int day, std::ofstream& data
                 << " | Food %: " << food_percentage
                 << std::endl;
 
-        data << day / 7 << ","
+        data << year << ","
             << pops.size() << ","
             << average_money << ","
             << food.price << ","
             << food.stored << ","
             << food_percentage << ","
-            << AGE_DEATH << ","
-            << STARVATION_DEATH << "\n";
+            << stats.age_deaths << ","
+            << stats.starvation_deaths << ","
+            << stats.plague_deaths << "\n";
 
-        AGE_DEATH = 0;
-        STARVATION_DEATH = 0;
+        stats = YearlyStats();
     }
 }
 
@@ -284,21 +318,20 @@ int main(){
     // Random seed
     srand (time(NULL));
 
-    // Creation of Pops
+    // Creation of instances
     std::vector<Pop> pops;
+    Food food(10,100);
+    YearlyStats stats;
 
     for (int i = 0; i < POP_AMOUNT; i++){
         pops.emplace_back(100, rand() % 11 + 5, (rand() % 60 + 18) * YEAR_DAYS); // Between 15 and 5 income, Between 18 and 77 in age too
     }
 
-    // Creation of food
-    Food food(10,100);
-
     // Create CSV file for graphing in python
     std::ofstream data("simulation.csv");
 
     // CSV headings
-    data << "Week,Population,AverageMoney,Price,Stored,FoodPercentage,AgeDeath,Starvation\n";
+    data << "Year,Population,AverageMoney,Price,Stored,FoodPercentage,AgeDeath,Starvation,PlagueDeath\n";
 
     // Simulation
     for (int day = 1; day <= SIMULATION_LENGTH; day++){
@@ -312,22 +345,31 @@ int main(){
         // Locust
         Locust(pops,food);
 
+        // Plague
+        Plague(pops,stats);
+
         // Food consumption
         ConsumeFood(pops, food);
 
         // Stock take of food
-        StockTake(pops,food);
+        StockTake(pops,food,day);
 
         // Adjustment of pops (births/deaths)
-        PopulationAdjustment(pops,food,day);
+        PopulationAdjustment(pops,food,day,stats);
 
-        Statistics(pops,food, day, data);
+        Statistics(pops,food, day, data,stats);
 
-        if (LOCUST_DAYS > 0){
-            LOCUST_DAYS--;
-        }
         if (LOCUST_DELAY > 0){
             LOCUST_DELAY--;
+        }
+        if (LOCUST_LENGTH > 0){
+            LOCUST_LENGTH--;
+        }
+        if (PLAGUE_DELAY > 0){
+            PLAGUE_DELAY--;
+        }
+        if(PLAGUE_LENGTH > 0){
+            PLAGUE_LENGTH--;
         }
 
     } 
