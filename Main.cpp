@@ -3,16 +3,22 @@
 #include <cstdlib>
 #include <fstream>
 #include <cmath>
+#include <ctime>
 
 // ***** Simulation parameters *****
 
 // Environment globals
-int years = 250;
-int simulation_length = years * 365;
+int years = 300;
+int year_days = 365;
+int simulation_length = years * year_days;
 
 int pop_amount = 25;
+int lifespan = 80;
+int adult_age = 18 * year_days;
+int senior_age = 65 * year_days;
 
 int locust_days;
+int locust_delay;
 
 // Stats
 int age_death = 0;
@@ -24,7 +30,6 @@ class Pop {
         double money;
         double income;
         int age;
-        int lifespan;
         bool alive;
         bool food;
         int hunger;
@@ -33,7 +38,6 @@ class Pop {
         money = initial_money;
         income = initial_income;
         age = initial_age;
-        lifespan = 80;
         alive = true;
         food = true;
         hunger = 0;
@@ -65,11 +69,11 @@ void ProductionFood(std::vector<Pop>& pops,Food& food){
 
         // *** Production ***
     for (Pop& pop : pops) {
-        if (pop.age >= 18 * 365 && pop.age < 65 *365) {
-            double production = (rand() % 25 + 7) / 10.0; // My people are simple village folk
+        if (pop.age >= adult_age && pop.age <= senior_age) {
+            double production = (rand() % 22 + 6) / 10.0; // My people are simple village folk
             
             if (locust_days > 0){
-                production *= 0.5;
+                production *= 0.4;
             }
 
             food.stored += production;
@@ -81,12 +85,13 @@ void Locust(std::vector<Pop>& pops, Food& food){
 
     // *** Swarm of locust (unlocks at 100 pops for stability) ***
 
-    if (pops.size() >= 100){
-            if (rand() % 20000 < 1){
-                food.stored -= food.stored * (rand() % 51) / 100.0;
+    if (pops.size() >= 100 && locust_delay <= 0){
+        if (rand() % 20000 < 1){
+            food.stored -= food.stored * (rand() % 51) / 100.0;
 
-                locust_days = 20;
-            }
+            locust_days = 50;
+            locust_delay = 2 * year_days;
+        }
 
     }
     
@@ -101,7 +106,7 @@ void ConsumeFood(std::vector<Pop>& pops, Food& food){
         pop.food = false;
 
         // Adults get food first
-        if (pop.age >= 18 * 365 && pop.age < 65 * 365){
+        if (pop.age >= adult_age && pop.age < senior_age){
             if (pop.alive && pop.money >= food.price && food.stored >= 1){
                 pop.money -= food.price;
                 food.stored--;
@@ -114,7 +119,7 @@ void ConsumeFood(std::vector<Pop>& pops, Food& food){
     for (Pop& pop : pops){
         
         if (pop.food == false){
-            if (pop.age < 18 * 365 && food.stored >= 1){
+            if (pop.age < adult_age && food.stored >= 1){
                 food.stored--;
                 pop.food = true;
             }
@@ -125,7 +130,7 @@ void ConsumeFood(std::vector<Pop>& pops, Food& food){
     for (Pop& pop : pops){
 
         if (pop.food == false){
-            if (pop.age >= 65 * 365 && pop.alive && pop.money >= food.price && food.stored >= 1){
+            if (pop.age >= senior_age && pop.alive && pop.money >= food.price && food.stored >= 1){
                 pop.money -= food.price;
                 food.stored--;
                 pop.food = true;
@@ -162,7 +167,7 @@ void PopulationAdjustment(std::vector<Pop>& pops, int day){
     // *** Population adjustments ***
 
     for (Pop& pop : pops){
-        if (pop.age == 18 * 365){
+        if (pop.age == adult_age){
             pop.income = rand() % 11 + 5;
         }
     }
@@ -171,7 +176,7 @@ void PopulationAdjustment(std::vector<Pop>& pops, int day){
 
     for (Pop& pop : pops){
         pop.age++;
-        if (pop.age >= pop.lifespan * 365){
+        if (pop.age >= lifespan * year_days){
             pop.alive = false;
             age_death++;
             //std::cout << "Pop died of old age" << std::endl;
@@ -199,12 +204,11 @@ void PopulationAdjustment(std::vector<Pop>& pops, int day){
         }
     }
 
-
     // Births
     int births = 0;
 
     for (Pop& pop : pops){
-        if (pop.age >= 18 * 365 && pop.age <= 65 * 365){
+        if (pop.age >= adult_age && pop.age < senior_age && locust_days == 0){
             if (rand() % 7000 < 1){
                 births++;
             }
@@ -256,8 +260,6 @@ void Statistics(std::vector<Pop>& pops, Food& food, int day, std::ofstream& data
     }
 }
 
-
-
 int main(){
 
     // Random seed
@@ -267,7 +269,7 @@ int main(){
     std::vector<Pop> pops;
 
     for (int i = 0; i < pop_amount; i++){
-        pops.emplace_back(100, rand() % 11 + 5, (rand() % 60 + 18) * 365); // Between 16 and 5 income, Between 18 and 77 in age too
+        pops.emplace_back(100, rand() % 11 + 5, (rand() % 60 + 18) * year_days); // Between 15 and 5 income, Between 18 and 77 in age too
     }
 
     // Creation of food
@@ -304,6 +306,7 @@ int main(){
 
         if (locust_days > 0){
             locust_days--;
+            locust_delay--;
         }
 
     } 
